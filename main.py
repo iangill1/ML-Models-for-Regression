@@ -1,6 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import KFold
 from gradient_boosting import gbr_default_params, gbr_tuning_params
+from random_forest import rf_default_params, rf_tuning_params
 
 def main():
     #load dataset
@@ -14,12 +15,20 @@ def main():
     kf = KFold(n_splits=10, shuffle=True, random_state=42)
 
     #calling functions and passing in data and KFold for cross validation
-    default_results = gbr_default_params(X, y, kf)
-    tuned_results = gbr_tuning_params(X, y, kf)
+    default_gbr_results = gbr_default_params(X, y, kf)
+    tuned_gbr_results = gbr_tuning_params(X, y, kf)
+
+    default_rf_results = rf_default_params(X, y, kf)
+    tuned_rf_results = rf_tuning_params(X, y, kf)
 
     #results
-    print("Results with default params:\n", default_results)
-    print("\n\nResults with tuned params:\n", tuned_results)
+    print("Gradient Boosting Regressor Results:\n")
+    print("Results with default params:\n", default_gbr_results)
+    print("\n\nResults with tuned params:\n", tuned_gbr_results)
+
+    print("\n\nRandom Forest Regressor Results:\n"),
+    print("Results with default params:\n", default_rf_results)
+    print("\n\nResults with tuned params:\n", tuned_rf_results)
 
 if __name__ == "__main__":
     main()
