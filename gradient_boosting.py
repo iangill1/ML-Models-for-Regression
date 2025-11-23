@@ -1,38 +1,106 @@
 from sklearn.ensemble import GradientBoostingRegressor
-import pandas as pd
 import numpy as np
-import matplotlib as plt
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, cross_validate
 
-#function to run gradient boosting regressor with default parameters
-def gbr_default_params(X_train, y_train, X_test):
-    gbr = GradientBoostingRegressor()
-    gbr.fit(X_train, y_train)
+#function to run gradient boosting regressor with default parameters and 10 fold cross validation
+def gbr_default_params(X, y, kf):
+    #make results reproducable with same random_state
+    gbr = GradientBoostingRegressor(random_state=42)
 
-    #get predictions of target variable
-    training_prediction = gbr.predict(X_train)
-    test_prediction = gbr.predict(X_test)
+    #cross validation with kfold and scoring for mse and r2
+    cv_results = cross_validate(estimator=gbr,
+                                X=X,
+                                y=y,
+                                cv=kf,
+                                scoring=("neg_mean_squared_error", "r2"),
+                                return_train_score=True)
 
-    return training_prediction, test_prediction
+    #get results from cross validation, converting negative mse to positive
+    cv_train_mse_error = (-cv_results['train_neg_mean_squared_error']).tolist()
+    cv_test_mse_error = (-cv_results['test_neg_mean_squared_error']).tolist()
+    cv_train_r2_error = cv_results['train_r2'].tolist()
+    cv_test_r2_error = cv_results['test_r2'].tolist()
+
+    #get average of results across all folds
+    train_mse_avg = np.mean(cv_train_mse_error)
+    test_mse_avg = np.mean(cv_test_mse_error)
+    train_r2_avg = np.mean(cv_train_r2_error)
+    test_r2_avg = np.mean(cv_test_r2_error)
+
+    return (
+        {
+            #all results from cross validation
+            "cv_train_mse_error": cv_train_mse_error,
+            "cv_test_mse_error": cv_test_mse_error,
+            "cv_train_r2_error": cv_train_r2_error,
+            "cv_test_r2_error": cv_test_r2_error,
+        },
+        #averages of these results for comparison with tuned results
+        train_mse_avg,
+        test_mse_avg,
+        train_r2_avg,
+        test_r2_avg
+    )
 
 #function to run gradient boosting regressor with hyperparameter tuning
-def gbr_tuning_params(X_train, y_train, X_test):
-    gbr = GradientBoostingRegressor()
-    param_grid = {
-        "learning_rate": [0.01, 0.1, 0.2],
-        "n_estimators": [100, 200, 300],
-    }
-    #implement grid search
-    grid_search = GridSearchCV(estimator=gbr, param_grid=param_grid, cv=5, scoring='neg_mean_squared_error')
-    grid_search.fit(X_train, y_train)
+def gbr_tuning_params(X, y, kf):
+    #making results reproducable with same random_state
+    gbr = GradientBoostingRegressor(random_state=42)
 
+    #define parameter grid for tuning
+    param_grid = {
+        "learning_rate": [0.05, 0.1, 0.15, 0.2, 0.5],
+        "n_estimators": [100, 200, 300, 400, 500, 600],
+    }
+    #implement grid search, swapping between mse and r2 for getting best model
+    grid_search = GridSearchCV(estimator=gbr,
+                               param_grid=param_grid,
+                               cv=kf,
+                               scoring=('neg_mean_squared_error', 'r2'),
+                               refit='r2',
+                               n_jobs=-1)
+
+    #fit the grid search to data
+    grid_search.fit(X, y)
     #get the best model from grid search
     best_gbr = grid_search.best_estimator_
+    #get the mean cross validated score from the best model
+    best_score = grid_search.best_score_
 
-    #get predictions on this model
-    training_prediction = best_gbr.predict(X_train)
-    test_prediction = best_gbr.predict(X_test)
+    print("Best parameters found: ", grid_search.best_params_)
+    print("Best cross-validated score: ", best_score)
 
-    #return predictions and parameters that gave best results and best score
-    #best score is mean cross-validated score of the best_estimator
-    return training_prediction, test_prediction, grid_search.best_params_, grid_search.best_score_
+    #cross validation with kfold and scoring for mse and r2 using best model
+    cv_results = cross_validate(estimator=best_gbr,
+                                X=X,
+                                y=y,
+                                cv=kf,
+                                scoring=("neg_mean_squared_error", "r2"),
+                                return_train_score=True)
+
+    #get results from cross validation, converting negative mse to positive
+    cv_train_mse_error = (-cv_results['train_neg_mean_squared_error']).tolist()
+    cv_test_mse_error = (-cv_results['test_neg_mean_squared_error']).tolist()
+    cv_train_r2_error = cv_results['train_r2'].tolist()
+    cv_test_r2_error = cv_results['test_r2'].tolist()
+
+    # get average of results across all folds
+    train_mse_avg = np.mean(cv_train_mse_error)
+    test_mse_avg = np.mean(cv_test_mse_error)
+    train_r2_avg = np.mean(cv_train_r2_error)
+    test_r2_avg = np.mean(cv_test_r2_error)
+
+    return (
+        {
+            #all results from cross validation
+            "cv_train_mse_error": cv_train_mse_error,
+            "cv_test_mse_error": cv_test_mse_error,
+            "cv_train_r2_error": cv_train_r2_error,
+            "cv_test_r2_error": cv_test_r2_error,
+        },
+        #averages of these results for comparison with tuned results
+        train_mse_avg,
+        test_mse_avg,
+        train_r2_avg,
+        test_r2_avg
+    )
