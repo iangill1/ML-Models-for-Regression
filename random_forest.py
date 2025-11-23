@@ -1,6 +1,9 @@
 from sklearn.ensemble import RandomForestRegressor
 import numpy as np
 from sklearn.model_selection import GridSearchCV, cross_validate
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
 
 #function to run random forest regressor with default parameters and 10 fold cross validation
 def rf_default_params(X, y, kf):
@@ -57,8 +60,9 @@ def rf_tuning_params(X, y, kf):
                                param_grid=param_grid,
                                cv=kf,
                                scoring=('neg_mean_squared_error', 'r2'),
-                               refit='neg_mean_squared_error',
-                               n_jobs=-1)
+                               refit='r2',
+                               n_jobs=-1,
+                               return_train_score=True)
 
     #fit the grid search to data
     grid_search.fit(X, y)
@@ -89,6 +93,22 @@ def rf_tuning_params(X, y, kf):
     test_mse_avg = np.mean(cv_test_mse_error)
     train_r2_avg = np.mean(cv_train_r2_error)
     test_r2_avg = np.mean(cv_test_r2_error)
+
+    cv_results = pd.DataFrame(grid_search.cv_results_)
+    heatmap_data = cv_results.pivot(
+        index="param_max_depth",
+        columns="param_n_estimators",
+        values="mean_test_r2"
+    )
+    #heatmap_data = -heatmap_data  # Flip sign
+
+    # Plot heatmap
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(heatmap_data, annot=True, fmt=".2f", cmap="viridis")
+    plt.title("Grid Search R2 Heatmap")
+    plt.xlabel("n_estimators")
+    plt.ylabel("max_depth")
+    plt.show()
 
     return (
         {
